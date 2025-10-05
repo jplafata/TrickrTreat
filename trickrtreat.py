@@ -1,52 +1,58 @@
-import vlc
+import subprocess
 import time
 from gpiozero import MotionSensor
 
 # === CONFIG ===
 PIR_PIN = 17
-IDLE_VIDEO = "/home/pi/videos/idle.mp4"
-TRIGGER_VIDEO = "/home/pi/videos/trigger.mp4"
+IDLE_VIDEO = "idle-loop.mp4"            # Pi-friendly idle video
+TRIGGER_VIDEO = "/home/pi/videos/trigger_pi.mp4"  # Pi-friendly trigger video
 
 # === Setup ===
 pir = MotionSensor(PIR_PIN)
 
-# Create VLC instance
-instance = vlc.Instance("--loop", "--avcodec-hw=none", "--no-video-title-show", 
-"--fullscreen")   # loop for idle playback
-player = instance.media_player_new()
-
+# Helper function to start a video with mpv
 def play_video(path, loop=False):
-    """Play a video, optionally loop."""
-    media = instance.media_new(path)
-    player.set_media(media)
-    if loop:
-        player.set_playback_mode(vlc.PlaybackMode.loop)
-    else:
-        player.set_playback_mode(vlc.PlaybackMode.default)
-    player.play()
+    """Play a video fullscreen on Pi Desktop using mpv."""
+    args = [
+        "mpv",
+        path,
+        "--no-terminal",                  # suppress console output
+        "--vo=x11",                       # X11 video output for Desktop
+        "--fullscreen",                   # force fullscreen
+        "--autofit=100%x100%",            # scale video to fill display
+        "--hwdec=mmal",                   # Pi GPU hardware decoding
+        "--no-input-default-bindings",    # do not capture keyboard/mouse
+        "--loop" if loop else "--loop=no"
+    ]
+    return subprocess.Popen(
+        args,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
 
-# Start idle loop
-play_video(IDLE_VIDEO, loop=True)
+# Start idle video loop
+idle_process = play_video(IDLE_VIDEO, loop=True)
 
 try:
     while True:
         pir.wait_for_motion()
         print("Motion detected!")
 
-        # Stop idle
-        player.stop()
+        # Stop idle video
+        idle_process.terminate()
+        idle_process.wait()
 
         # Play trigger video once
-        play_video(TRIGGER_VIDEO, loop=False)
+        trigger_process = play_video(TRIGGER_VIDEO, loop=False)
+        trigger_process.wait()  # wait until trigger finishes
 
-        # Wait until trigger finishes
-        while player.is_playing():
-            time.sleep(0.1)
+        # Resume idle video loop
+        idle_process = play_video(IDLE_VIDEO, loop=True)
 
-        # Resume idle loop
-        play_video(IDLE_VIDEO, loop=True)
         pir.wait_for_no_motion()
 
 except KeyboardInterrupt:
     print("Exiting...")
-    player.stop()
+    idle_process.terminate()
+    idle_process.wait()
