@@ -11,7 +11,8 @@ TRIGGER_VIDEO = "/home/pi/videos/trigger.mp4"
 pir = MotionSensor(PIR_PIN)
 
 # Create VLC instance
-instance = vlc.Instance("--loop")   # loop for idle playback
+instance = vlc.Instance("--loop", "--avcodec-hw=none", "--no-video-title-show", 
+"--fullscreen")   # loop for idle playback
 player = instance.media_player_new()
 
 def play_video(path, loop=False):
