@@ -31,7 +31,8 @@ def motion_callback(channel):
     Sets a global flag to indicate motion was detected.
     """
     global motion_detected_flag
-    print("Motion detected by sensor!")
+    # No need to print here, as it can slow down the interrupt handler.
+    # The main loop will provide feedback.
     motion_detected_flag = True
 
 def main():
@@ -52,8 +53,8 @@ def main():
     GPIO.setup(PIR_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
     # Setup interrupt for motion detection. This is non-blocking.
-    # bouncetime avoids multiple rapid triggers.
-    GPIO.add_event_detect(PIR_PIN, GPIO.RISING, callback=motion_callback, bouncetime=5000)
+    # bouncetime avoids multiple rapid triggers from the same motion event.
+    GPIO.add_event_detect(PIR_PIN, GPIO.RISING, callback=motion_callback, bouncetime=500)
 
     print("Sensor and video player initializing...")
 
@@ -85,16 +86,22 @@ def main():
 
             # --- State Machine Logic ---
 
-            # Check if motion has been detected
-            if motion_detected_flag:
+            # Check if motion has been detected AND we are currently in the idle state.
+            # This prevents the trigger section from restarting if motion continues.
+            if motion_detected_flag and current_state == 'IDLE':
                 current_state = 'TRIGGER'
                 player.set_time(TRIGGER_START_MS)
-                print(f"Playing TRIGGER section ({TRIGGER_START_S}s to {TRIGGER_END_S}s).")
-                motion_detected_flag = False # Reset the flag
+                print(f"Motion Detected! Playing TRIGGER section ({TRIGGER_START_S}s to {TRIGGER_END_S}s).")
+                motion_detected_flag = False  # Reset the flag so we don't re-trigger immediately
+
+            # If motion is detected while the trigger video is already playing, just ignore it.
+            elif motion_detected_flag:
+                motion_detected_flag = False # Reset flag and do nothing.
 
             # Handle the IDLE state (looping)
             if current_state == 'IDLE':
-                # If playback is past the idle section, loop it back
+                # If playback is past the idle section's end, or somehow before its start,
+                # loop it back to the beginning of the idle section.
                 if current_time >= IDLE_END_MS or current_time < IDLE_START_MS:
                     player.set_time(IDLE_START_MS)
 
