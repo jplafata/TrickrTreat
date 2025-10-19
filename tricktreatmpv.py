@@ -11,12 +11,12 @@ PIR_PIN = 17
 # --- Video Time Configuration (in seconds) ---
 IDLE_START_S = 0
 IDLE_END_S = 50
-TRIGGER_START_S = 51
+TRIGGER_START_S = 53
 TRIGGER_END_S = 76
 
 # --- File Paths ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-VIDEO_PATH = os.path.join(SCRIPT_DIR, "combined_video.mp4")
+VIDEO_PATH = os.path.join(SCRIPT_DIR, "trickrtreatdoor.mp4")
 # A temporary file used for communication between this script and MPV
 SOCKET_PATH = "/tmp/mpv.sock"
 
